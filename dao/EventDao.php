@@ -10,15 +10,22 @@ class EventDao {
     
     public function insert(Event $event) {
         $INSERT_SQL = "INSERT INTO events (
-            CALENDARSUMMARY, 
-            CALENDARLOCATION, 
-            CALENDARICALUID, 
-            CALENDARSTART, 
-            CREATED, 
-            UPDATED) 
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+            ICALUID,
+            STARTDATE, 
+            STARTDATETIME,
+            SUMMARY,
+            LOCATION,    
+            FACEBOOKLINK,
+            TICKETPURCHASELINK,
+            FLYERURL,
+            VISIBILITY,
+            SEQUENCE,
+            CREATED,
+            UPDATED,
+            CREATOR) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, )";
         $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("ssss", 
+        $stmt->bind_param("ssssssssssssss", 
             $event->calendarSummary,                   
             $event->calendarLocation,
             $event->calendarICalUID,
