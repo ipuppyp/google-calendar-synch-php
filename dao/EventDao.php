@@ -9,11 +9,6 @@ class EventDao {
     }
     
     public function insert(Event $event) {
-        echo "insert: " . $event->calendarSummary . "\n";
-        error_reporting(E_ALL);
-        ini_set('display_errors', 1);
-        
-        
         $INSERT_SQL = "INSERT INTO events (
             CALENDARSUMMARY, 
             CALENDARLOCATION, 
@@ -28,13 +23,15 @@ class EventDao {
             $event->calendarLocation,
             $event->calendarICalUID,
             $event->calendarStart);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            printf("error during insert event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+        }
         $stmt->close();
         
     }
     
     public function update(Event $event) {
-        echo "update: " . $event->calendarSummary . "\n"; 
+        //echo "update: " . $event->calendarSummary . "\n"; 
         $INSERT_SQL = "UPDATE events set 
             CALENDARSUMMARY = ?, 
             CALENDARLOCATION = ?, 
@@ -48,7 +45,10 @@ class EventDao {
             $event->calendarLocation,
             $event->calendarStart,
             $event->id);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            printf("error during update event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            exit();
+        }
         $stmt->close();
         
     }
@@ -56,14 +56,38 @@ class EventDao {
     public function delete(Event $event) {
         $INSERT_SQL = "DELETE FROM events WHERE ID = ?";
         $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("s", $event->getId());
-        $stmt->execute();
+        $stmt->bind_param("s", $event->id);
+        if (!$stmt->execute()) {
+            printf("error during delete event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            exit();
+        }
         $stmt->close();
     }
     
    
-    public function findByCalendarStartGreaterThan($calendarstart) {
-        return [];    
+    public function findByCalendarStartGreaterOrEqualThan($calendarStart) {
+        $SELECT_SQL = "SELECT ID, CALENDARICALUID FROM EVENTS WHERE CALENDARSTART >= ?";
+        $stmt = $this->mysqli->prepare($SELECT_SQL);
+        $stmt->bind_param("s", $calendarStart);
+        $stmt->execute();
+        if (!$stmt->execute()) {
+            printf("error during findByCalendarStartGreaterOrEqualThan event: %s, %s\n", $calendarStart,  $stmt->error);
+            exit();
+        }
+        $result = $stmt->get_result();
+
+        $events = array($stmt->num_rows);
+        $i = 0;
+        $event = null;            
+        while ($row = $result->fetch_assoc()) {
+            $event = new Event();
+            $event->calendarICalUID = $row["CALENDARICALUID"];
+            $event->id = $row["ID"];
+            $events[$i++] = $event;
+        }
+        $result->close();
+        $stmt->close();
+        return $events;
     }
     
     
@@ -86,6 +110,10 @@ class EventDao {
         $stmt = $this->mysqli->prepare($INSERT_SQL);
         $stmt->bind_param("s", $calendarICalUID);
         $stmt->execute();
+        if (!$stmt->execute()) {
+            printf("error during findByOrigCalUID event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            exit();
+        }
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         
@@ -100,16 +128,9 @@ class EventDao {
         }
         $result->close();
         $stmt->close();
-        echo "find: " . $event->calendarSummary . "\n";
         return $event;
     }
-    
-    public function deleteAll() {
-        $DELETE_ALL_SQL = "delete from Events";
-        $this->mysqli->query($DELETE_ALL_SQL);         
-    }
-    
-    
+        
     
 }
 ?>
