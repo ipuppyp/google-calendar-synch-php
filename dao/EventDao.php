@@ -3,57 +3,96 @@
 class EventDao {
     private $mysqli;
     
+    private $FIELDS = " ICALUID,
+                        STARTDATE,
+                        STARTDATETIME,
+                        SUMMARY,
+                        LOCATION,
+                        FACEBOOKLINK,
+                        TICKETPURCHASELINK,
+                        FLYERURL,
+                        VISIBILITY,
+                        SEQUENCE,
+                        CREATED,
+                        UPDATED,
+                        CREATOR";
+    
     public function __construct($mysqli) {
         $this->mysqli = $mysqli;
-        
     }
     
     public function insert(Event $event) {
-        $INSERT_SQL = "INSERT INTO events (
-            ICALUID,
-            STARTDATE, 
-            STARTDATETIME,
-            SUMMARY,
-            LOCATION,    
-            FACEBOOKLINK,
-            TICKETPURCHASELINK,
-            FLYERURL,
-            VISIBILITY,
-            SEQUENCE,
-            CREATED,
-            UPDATED,
-            CREATOR) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, )";
-        $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("ssssssssssssss", 
-            $event->calendarSummary,                   
-            $event->calendarLocation,
-            $event->calendarICalUID,
-            $event->calendarStart);
+        $SQL = "INSERT INTO events (
+            $this->FIELDS) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $this->mysqli->prepare($SQL);
+        
+        $stmt->bind_param("sssssssssssss", 
+            $event->iCalUID,
+            $event->startDate,
+            $this->createDateTime($event->startDateTime),
+            $event->summary,
+            $event->location,
+            $event->facebookLink,
+            $event->ticketPurchaseLink,
+            $event->flyerUrl,
+            $event->visibility,
+            $event->sequence,
+            $this->createDateTime($event->created),
+            $this->createDateTime($event->updated),
+            $event->creator);
         if (!$stmt->execute()) {
-            printf("error during insert event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            printf("error during insert event: %s, %s\n", $event->summary,  $stmt->error);
         }
         $stmt->close();
         
     }
     
+
+
+    private function createDateTime($value)
+    {
+        echo $value. "\n";
+        $result = null;
+        if ($value != null) {
+            $result = date("Y-m-d h:i:s", strtotime($value));
+        }
+        return $result;
+    }
+
     public function update(Event $event) {
         //echo "update: " . $event->calendarSummary . "\n"; 
-        $INSERT_SQL = "UPDATE events set 
-            CALENDARSUMMARY = ?, 
-            CALENDARLOCATION = ?, 
-            CALENDARSTART = ?, 
-            UPDATED = CURRENT_TIMESTAMP, 
-            CHANGED = 1
-            WHERE ID = ?";
-        $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("ssss", 
-            $event->calendarSummary,
-            $event->calendarLocation,
-            $event->calendarStart,
-            $event->id);
+        $SQL = "UPDATE events set 
+            STARTDATE = ?, 
+            STARTDATETIME = ?,
+            SUMMARY = ?,
+            LOCATION = ?,    
+            FACEBOOKLINK = ?,
+            TICKETPURCHASELINK = ?,
+            FLYERURL = ?,
+            VISIBILITY = ?,
+            SEQUENCE = ?,
+            CREATED = ?,
+            UPDATED = ?,
+            CREATOR = ?
+            WHERE ICALUID = ?";
+        $stmt = $this->mysqli->prepare($SQL);
+        $stmt->bind_param("sssssssssssss", 
+            $event->startDate,
+            $this->createDateTime($event->startDateTime),
+            $event->summary,
+            $event->location,
+            $event->facebookLink,
+            $event->ticketPurchaseLink,
+            $event->flyerUrl,
+            $event->visibility,
+            $event->sequence,
+            $this->createDateTime($event->created),
+            $this->createDateTime($event->updated),
+            $event->creator,
+            $event->iCalUID);
         if (!$stmt->execute()) {
-            printf("error during update event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            printf("error during update event: %s, %s\n", $event->summary,  $stmt->error);
             exit();
         }
         $stmt->close();
@@ -61,36 +100,51 @@ class EventDao {
     }
     
     public function delete(Event $event) {
-        $INSERT_SQL = "DELETE FROM events WHERE ID = ?";
+        $INSERT_SQL = "DELETE FROM events WHERE ICALUID = ?";
         $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("s", $event->id);
+        $stmt->bind_param("s", $event->iCalUID);
         if (!$stmt->execute()) {
             printf("error during delete event: %s, %s\n", $event->calendarSummary,  $stmt->error);
             exit();
         }
         $stmt->close();
     }
-    
    
-    public function findByCalendarStartGreaterOrEqualThan($calendarStart) {
-        $SELECT_SQL = "SELECT ID, CALENDARICALUID FROM EVENTS WHERE CALENDARSTART >= ?";
-        $stmt = $this->mysqli->prepare($SELECT_SQL);
-        $stmt->bind_param("s", $calendarStart);
+    public function findFutureEvents() {
+        $SQL = "SELECT ICALUID 
+                        FROM EVENTS 
+                        WHERE STARTDATE >= CURRENT_TIMESTAMP OR STARTDATETIME >= CURRENT_TIMESTAMP";
+        $result = $this->mysqli->query($SQL);
+
+        if (!$result) {
+            printf("error during findFutureEvents event: %s\n", $result->error);
+            exit();
+        }
+        $events = array($result->num_rows);
+        $i = 0;
+        while ($row = $result->fetch_assoc()) {
+            $event = new Event();
+            $event->iCalUID = $row["ICALUID"];
+            $events[$i++] = $event;
+        }
+        $result->close();
+        return $events;
+    }
+    
+    public function findAll() {
+        $SQL = "SELECT $this->FIELDS FROM EVENTS";
+        $stmt = $this->mysqli->prepare($SQL);
         $stmt->execute();
         if (!$stmt->execute()) {
-            printf("error during findByCalendarStartGreaterOrEqualThan event: %s, %s\n", $calendarStart,  $stmt->error);
+            printf("error during findAll : %s\n", $stmt->error);
             exit();
         }
         $result = $stmt->get_result();
-
+        
         $events = array($stmt->num_rows);
         $i = 0;
-        $event = null;            
         while ($row = $result->fetch_assoc()) {
-            $event = new Event();
-            $event->calendarICalUID = $row["CALENDARICALUID"];
-            $event->id = $row["ID"];
-            $events[$i++] = $event;
+            $events[$i++] = $this->createEventFromRow($row);
         }
         $result->close();
         $stmt->close();
@@ -98,27 +152,15 @@ class EventDao {
     }
     
     
-    public function findByOrigCalUID($calendarICalUID) {
-        $INSERT_SQL = "SELECT  
-            CALENDARLOCATION, 
-            CALENDARICALUID, 
-            CALENDARSTART, 
-            CALENDARSUMMARY, 
-            CHANGED, 
-            CREATED, 
-            DESCRIPTION, 
-            FACEBOOKLINK, 
-            ID, 
-            LOCATION, 
-            TICKETPURCHASELINK, 
-            UPDATED, 
-            VISIBLE 
-                    FROM EVENTS WHERE CALENDARICALUID = ?";
-        $stmt = $this->mysqli->prepare($INSERT_SQL);
-        $stmt->bind_param("s", $calendarICalUID);
+    public function findByOrigCalUID($iCalUID) {
+        $SQL = "SELECT  
+            $this->FIELDS 
+            FROM EVENTS WHERE ICALUID = ?";
+        $stmt = $this->mysqli->prepare($SQL);
+        $stmt->bind_param("s", $iCalUID);
         $stmt->execute();
         if (!$stmt->execute()) {
-            printf("error during findByOrigCalUID event: %s, %s\n", $event->calendarSummary,  $stmt->error);
+            printf("error during findByOrigCalUID event: %s, %s\n", $iCalUID,  $stmt->error);
             exit();
         }
         $result = $stmt->get_result();
@@ -126,18 +168,30 @@ class EventDao {
         
         $event = null;
         if ($row) {
-            $event = new Event();
-            $event->calendarLocation = $row["CALENDARLOCATION"];
-            $event->calendarICalUID = $row["CALENDARICALUID"];
-            $event->calendarStart = $row["CALENDARSTART"];
-            $event->calendarSummary = $row["CALENDARSUMMARY"];
-            $event->id = $row["ID"];
+            $event = $this->createEventFromRow($row);
         }
         $result->close();
         $stmt->close();
         return $event;
     }
-        
     
+    private function createEventFromRow($row) {
+        $event = new Event();
+        $event->iCalUID = $row["ICALUID"];
+        $event->startDate = $row["STARTDATE"];
+        $event->startDateTime = $row["STARTDATETIME"];
+        $event->summary = $row["SUMMARY"];
+        $event->location = $row["LOCATION"];
+        $event->facebookLink = $row["FACEBOOKLINK"];
+        $event->ticketPurchaseLink = $row["TICKETPURCHASELINK"];
+        $event->flyerUrl = $row["FLYERURL"];
+        $event->visibility = $row["VISIBILITY"];
+        $event->sequence = $row["SEQUENCE"];
+        $event->created = $row["CREATED"];
+        $event->updated = $row["UPDATED"];
+        $event->creator = $row["CREATOR"];
+        return $event;
+    }
+        
 }
 ?>

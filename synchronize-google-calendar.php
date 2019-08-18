@@ -19,17 +19,17 @@ $eventDao = new EventDao($mysqli);
 
 $calendar = $service->findCalendarByName('test-from');
 $googleEvents = $service->findEventsByCalendar($calendar)->getItems();
-$events = $eventDao->findByCalendarStartGreaterOrEqualThan(date("Y-m-d H:i:s"));
+$events = $eventDao->findFutureEvents();
 
 $updated = 0;
 $inserted = 0;
 $removed = 0;
 
 foreach ($googleEvents as $gooleEvent) {
-    $event = $eventDao->findByOrigCalUID($gooleEvent->getICalUID());
+    $event = $eventDao->findByOrigCalUID($gooleEvent->iCalUID);
     if ($event == null) {
         $event = new Event();
-        $event->calUID = $gooleEvent->iCalUID();
+        $event->iCalUID = $gooleEvent->iCalUID;
         transformGoogleEventToEvent($gooleEvent, $event);
         $eventDao->insert($event);
         $inserted ++;
@@ -42,7 +42,7 @@ foreach ($googleEvents as $gooleEvent) {
 }
 
 foreach ($events as $event) {
-    if (! contains($googleEvents, $event)) {
+    if (!contains($googleEvents, $event)) {
         $eventDao->delete($event);
         $removed ++;
     }
@@ -50,10 +50,12 @@ foreach ($events as $event) {
 
 echo "Inserted: $inserted, Updated: $updated, removed: $removed.\n";
 
+$mysqli.close();
+
 function contains($googleEvents, $event)
 {
     foreach ($googleEvents as $gooleEvent) {
-        if ($gooleEvent->getICalUID() == $event->ICalUID) {
+        if ($gooleEvent->getICalUID() == $event->iCalUID) {
             return true;
         }
     }
@@ -76,9 +78,19 @@ function transformGoogleEventToEvent($gooleEvent, $event)
     $event->creator = $gooleEvent->getCreator()->email;
 }
 
+function getFacebookLink($description) {
+    $stripped = strip_tags($description);
+    $matches = array();
+    $s = preg_match('^.*?\bfacebook:\b([^$]*)$', $stripped, $matches);
+    print_r($matches[1]);
+    
+    
+}
+
 function changed($gooleEvent, $event)
 {
-    return $event->sequence != $gooleEvent->getSequence();
+    $googleEventUpdated = date("Y-m-d h:i:s", strtotime($gooleEvent->updated));
+    return $event->updated != $googleEventUpdated;
 }
 
 ?>
