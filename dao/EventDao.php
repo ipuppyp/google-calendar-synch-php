@@ -131,7 +131,10 @@ class EventDao {
     }
     
     public function findAll() {
-        $SQL = "SELECT ID, $this->FIELDS FROM EVENTS WHERE VISIBILITY IS NULL OR VISIBILITY = 'public'";
+        $SQL = "SELECT ID, $this->FIELDS, 
+                YEAR(COALESCE(STARTDATE, STARTDATETIME)) AS YEAR, COALESCE(STARTDATE, STARTDATETIME) AS DATE  
+                FROM EVENTS WHERE VISIBILITY IS NULL OR VISIBILITY = 'public' 
+                ORDER BY YEAR DESC, DATE ASC";
         $stmt = $this->mysqli->prepare($SQL);
         $stmt->execute();
         if (!$stmt->execute()) {

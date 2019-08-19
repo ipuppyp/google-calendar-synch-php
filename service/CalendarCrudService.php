@@ -39,6 +39,7 @@ class CalendarCrudService {
             'orderBy' => 'startTime',
             'singleEvents' => true,
             'timeMin' => date('c'),
+
         );
         
         $events = $this->service->events->listEvents($calendarId, $optParams);

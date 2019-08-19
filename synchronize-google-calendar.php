@@ -13,7 +13,7 @@ $service = new CalendarCrudService('ipuppyp/google-calendar-sync', '.store/googl
 
 $eventDao = new EventDao($mysqli);
 
-$calendar = $service->findCalendarByName('test-from');
+$calendar = $service->findCalendarByName('APACUKA_RSS');
 $googleEvents = $service->findEventsByCalendar($calendar)->getItems();
 $events = $eventDao->findFutureImportedEvents();
 
