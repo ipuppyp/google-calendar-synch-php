@@ -3,6 +3,8 @@
 class Event
 {
 
+    public $id;
+    
     public $iCalUID;
 
     public $startDate;
@@ -15,13 +17,11 @@ class Event
 
     public $facebookLink;
 
-    public $ticketPurchaseLink;
+    public $ticketsLink;
 
     public $flyerUrl;
 
     public $visibility;
-
-    public $sequence;
 
     public $created;
 

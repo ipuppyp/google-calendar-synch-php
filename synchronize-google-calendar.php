@@ -1,13 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-</head>
 
-<body>
 <?php
 ini_set("log_errors", 1);
 ini_set("error_log", "php-error.log");
+
+echo "Synchronizing events...\n";
 
 require_once __DIR__ . '/autoload.php';
 
@@ -19,7 +15,7 @@ $eventDao = new EventDao($mysqli);
 
 $calendar = $service->findCalendarByName('test-from');
 $googleEvents = $service->findEventsByCalendar($calendar)->getItems();
-$events = $eventDao->findFutureEvents();
+$events = $eventDao->findFutureImportedEvents();
 
 $updated = 0;
 $inserted = 0;
@@ -41,8 +37,10 @@ foreach ($googleEvents as $gooleEvent) {
     }
 }
 
+
 foreach ($events as $event) {
     if (!contains($googleEvents, $event)) {
+        echo "szar." + $event;
         $eventDao->delete($event);
         $removed ++;
     }
@@ -50,48 +48,49 @@ foreach ($events as $event) {
 
 echo "Inserted: $inserted, Updated: $updated, removed: $removed.\n";
 
-$mysqli.close();
+
 
 function contains($googleEvents, $event)
 {
-    foreach ($googleEvents as $gooleEvent) {
-        if ($gooleEvent->getICalUID() == $event->iCalUID) {
+    foreach ($googleEvents as $googleEvent) {
+        if ($googleEvent->iCalUID == $event->iCalUID) {
             return true;
         }
     }
     return false;
 }
 
-function transformGoogleEventToEvent($gooleEvent, $event)
+function transformGoogleEventToEvent(Google_Service_Calendar_Event $googleEvent, Event $event)
 {
-    $event->startDate = $gooleEvent->getStart()->date;
-    $event->startDateTime = $gooleEvent->getStart()->dateTime;
-    $event->summary = $gooleEvent->summary;
-    $event->location = $gooleEvent->location;
-    $event->facebookLink = "facebooklink";
-    $event->ticketPurchaseLink = "ticket purchase url";
-    $event->flyerUrl = "fyler URL";
-    $event->visibility = $gooleEvent->visibility;
-    $event->sequence = $gooleEvent->sequence;
-    $event->created = $gooleEvent->created;
-    $event->updated = $gooleEvent->updated;
-    $event->creator = $gooleEvent->getCreator()->email;
+    $description =  $googleEvent->description;
+    
+    $event->startDate = $googleEvent->getStart()->date;
+    $event->startDateTime = $googleEvent->getStart()->dateTime;
+    $event->summary = $googleEvent->summary;
+    $event->location = $googleEvent->location;
+    $event->facebookLink = extractInfo($description, "facebook");
+    $event->ticketsLink = extractInfo($description, "tickets");
+    $event->flyerUrl = extractInfo($description, "flyer");
+    $event->visibility = $googleEvent->visibility;
+    $event->sequence = $googleEvent->sequence;
+    $event->created = $googleEvent->created;
+    $event->updated = $googleEvent->updated;
+    $event->creator = $googleEvent->getCreator()->email;
 }
 
-function getFacebookLink($description) {
-    $stripped = strip_tags($description);
+function extractInfo($description, $data)
+{
+    $description=str_replace("<br>", "\n", strip_tags ($description,"<br>"));
+    
     $matches = array();
-    $s = preg_match('^.*?\bfacebook:\b([^$]*)$', $stripped, $matches);
-    print_r($matches[1]);
-    
-    
+    preg_match_all("/^$data\s*:\s*(.*)$/m",$description,$matches);
+    return $matches[1] ? trim($matches[1][0]) : null;
 }
 
 function changed($gooleEvent, $event)
 {
-    $googleEventUpdated = date("Y-m-d h:i:s", strtotime($gooleEvent->updated));
-    return $event->updated != $googleEventUpdated;
+    return $event->updated != date("Y-m-d h:i:s", strtotime($gooleEvent->updated));
 }
 
+echo "Synchronizing events DONE.";
 ?>
-</body>
